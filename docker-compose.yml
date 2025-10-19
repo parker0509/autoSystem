@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # 🟢 Spring Boot Application (MyBatis 연동)
+  app:
+    build: .
+    container_name: mybatis-app
+    restart: always
+    ports:
+      - "8081:8080"  # 로컬 8081 → 컨테이너 내부 8080
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3307/mybatis_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: qwer1234
+      SPRING_PROFILES_ACTIVE: docker
+      MYBATIS_MAPPER_LOCATIONS: classpath:mapper/**/*.xml
+      MYBATIS_TYPE_ALIASES_PACKAGE: com.example.AutoSys.domain
+    depends_on:
+      - mysql
+    networks:
+      - app-network
+
+  # 🐬 MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: qwer1234
+      MYSQL_DATABASE: mybatis_db
+      TZ: Asia/Seoul
+    ports:
+      - "3307:3306"  # 로컬 3307 → 컨테이너 3306
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # 초기 스키마 설정 (선택)
+    networks:
+      - app-network
+
+  # 🟣 Jenkins (CI/CD)
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    restart: unless-stopped
+    user: root
+    ports:
+      - "8888:8080"    # Jenkins 웹 UI
+      - "50000:50000"  # Jenkins agent 연결
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      JAVA_OPTS: -Djenkins.install.runSetupWizard=false
+    networks:
+      - app-network
+
+# 🗂️ 볼륨 (데이터 유지)
+volumes:
+  mysql_data:
+  jenkins_home:
+
+# 🌐 네트워크 (컨테이너 간 통신용)
+networks:
+  app-network:
+    driver: bridge
